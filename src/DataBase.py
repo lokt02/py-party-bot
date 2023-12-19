@@ -21,8 +21,10 @@ class DataBase:
                                          port=self.port)
             self.cursor = self.conn.cursor()
             log_info("Initialized connection to database")
+            return True
         except psycopg2.OperationalError as e:
             log_error("Could not connect to database. Error:\n" + str(e))
+            return False
 
     def _close_connection(self):
         try:
@@ -36,7 +38,9 @@ class DataBase:
 
     def get_chat_history(self, user_id):
         try:
-            self._create_connection()
+            if not self._create_connection():
+                log_error("Can't connect to the database")
+                return
             self.cursor.execute(
                 f'''
                     SELECT msg_bot, msg_user FROM
@@ -50,13 +54,33 @@ class DataBase:
             log_error("Operational error occurred while getting chat history. Error:\n" + str(e))
             self._close_connection()
 
-    def insert_message_in_chat_history(self, user_id, bot_message, user_message):
+    def insert_message_in_chat_history(self, user_id, bot_message, cur_state, user_message):
         try:
-            self._create_connection()
+            if not self._create_connection():
+                log_error("Can't connect to the database")
+                return
             self.cursor.execute(
                 f'''
-                    INSERT INTO chathistory (user_hash_tg_id, msg_bot, msg_user)
-                    VALUES ('{user_id}', '{bot_message}', '{user_message}');
+                    INSERT INTO chathistory (user_hash_tg_id, msg_bot, msg_user, state)
+                    VALUES ('{user_id}', '{bot_message}', '{user_message}', '{cur_state}');
+                '''
+            )
+            self.conn.commit()
+            self._close_connection()
+            return True
+        except psycopg2.OperationalError as e:
+            log_error("Operational error occurred while inserting. Error:\n" + str(e))
+            self._close_connection()
+            return False
+
+    def delete_chat_history(self, user_id):
+        try:
+            if not self._create_connection():
+                log_error("Can't connect to the database")
+                return
+            self.cursor.execute(
+                f'''
+                    DELETE FROM chathistory WHERE user_hash_tg_id='{user_id}';
                 '''
             )
             self.conn.commit()

@@ -22,5 +22,6 @@ CREATE TABLE IF NOT EXISTS ChatHistory(
     user_hash_tg_id VARCHAR(256),
     h_date date not null default CURRENT_DATE,
     msg_bot TEXT,
-    msg_user TEXT
+    msg_user TEXT,
+    state INT
 );
