@@ -5,14 +5,14 @@ import telebot
 from openai import OpenAI
 
 from src.DataBase import DataBase
-from src.Logger import log_info, log_init, log_error, log_debug
+from src.Logger import log_info, log_init, log_error, log_debug, log_message
 from src.MoralSchemeHandler import MoralSchemeHandler
 
 commandList = [
     "/start_conversation_moral",
     "/start_conversation_unmoral",
     "/end_conversation",
-    "/clear_history",
+    # "/clear_history",
     "/help"
 ]
 
@@ -41,7 +41,7 @@ class Party:
 
         self.user_data = {-1: {"state": UserState.COMMAND}}
 
-        self.database = DataBase()
+        # self.database = DataBase()
 
         @self.bot.message_handler(func=lambda message: True)
         def handle_message(message):
@@ -50,13 +50,15 @@ class Party:
             if self.user_data[message.chat.id]["state"] == UserState.COMMAND:
                 if message.text == "/start_conversation_moral":
                     self.user_data[message.chat.id]["state"] = UserState.MORAL
+                    self.bot.send_message(message.chat.id, "Включен режим разговора по моральной схеме.")
                 elif message.text == "/start_conversation_unmoral":
                     self.user_data[message.chat.id]["state"] = UserState.NOT_MORAL
-                elif message.text == "/clear_history":
-                    if self.database.delete_chat_history(message.chat.id):
-                        self.bot.send_message(message.chat.id, "История очищена")
-                    else:
-                        self.bot.send_message(message.chat.id, "Ошибка")
+                    self.bot.send_message(message.chat.id, "Включен режим разговора по неморальной схеме.")
+                # elif message.text == "/clear_history":
+                #     if self.database.delete_chat_history(message.chat.id):
+                #         self.bot.send_message(message.chat.id, "История очищена")
+                #     else:
+                #         self.bot.send_message(message.chat.id, "Ошибка")
                 elif message.text == "/help":
                     self.bot.send_message(message.chat.id, "Доступные команды:\n" + "\n".join(commandList))
                 else:
@@ -69,15 +71,24 @@ class Party:
         if message.text == "/end_conversation":
             self.user_data[message.chat.id]["state"] = UserState.COMMAND
             return
-        messages = self.messages.copy()
-        chat_history = self.database.get_chat_history(message.chat.id)
-        if chat_history is None:
-            self.bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
-            return
-        messages[message.chat.id] = [messages[-1][0]]
-        for his_mes in chat_history:
-            messages[message.chat.id].append({"role": "user", "content": his_mes[1]})
-            messages[message.chat.id].append({"role": "assistant", "content": his_mes[0]})
+        # messages = self.messages.copy()
+        messages = self.messages
+        # chat_history = self.database.get_chat_history(message.chat.id)
+        # if chat_history is None:
+        #     self.bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
+        #     return
+        # messages[message.chat.id] = [messages[-1][0]]
+        # for his_mes in chat_history:
+        #     messages[message.chat.id].append({"role": "user", "content": his_mes[1]})
+        #     messages[message.chat.id].append({"role": "assistant", "content": his_mes[0]})
+        if message.chat.id in messages.keys():
+            messages[message.chat.id].append({"role": "user", "content": message.text})
+        else:
+            messages[message.chat.id] = [
+                messages[-1][0],
+                {"role": "user", "content": message.text}
+            ]
+        log_message(f"{message.text}", message.from_user.username, "user")
         handler = MoralSchemeHandler()
         if self.user_data[message.chat.id]["state"] == UserState.MORAL:
             reply = handler.get_reply(message.text, messages[message.chat.id])
@@ -89,11 +100,12 @@ class Party:
             self.bot.send_message(message.chat.id, "Ошибка с получением ответ от сервера OpenAI.")
             return
 
-        log_info(f"ChatGPT: {reply}")
+        log_message(f"{reply}", message.from_user.username, "ChatGPT")
         self.bot.send_message(message.chat.id, reply)
+        messages[message.chat.id].append({"role": "assistant", "content": str(reply)})
 
-        if not self.database.insert_message_in_chat_history(message.chat.id, reply[0], reply[1], message.text):
-            self.bot.send_message(message.chat.id, "Не удалось запомнить ответ. Ошибка подключения к базе данных.")
+        # if not self.database.insert_message_in_chat_history(message.chat.id, reply[0], reply[1], message.text):
+        #     self.bot.send_message(message.chat.id, "Не удалось запомнить ответ. Ошибка подключения к базе данных.")
 
     def run(self):
         self.bot.infinity_polling()

@@ -20,3 +20,8 @@ def log_error(message):
 def log_debug(message):
     print('[DEBUG] ' + message)
     logging.debug(message)
+
+def log_message(message, username, sayer):
+    res = f"{sayer}: {message}\n"
+    with open(f"{username}_log.txt", 'a+') as f:
+        f.write(res)

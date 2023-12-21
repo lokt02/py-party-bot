@@ -9,7 +9,7 @@ from src.Logger import log_info, log_error
 global_config = configparser.ConfigParser()
 global_config.read("config.ini")
 openai.api_key = global_config["OpenAI"]["api_key"]
-openai.base_url = "https://api.vsegpt.ru:6070/v1/"
+# openai.base_url = "https://api.vsegpt.ru:6070/v1/"
 
 class MoralSchemeHandler:
     def __init__(self):
@@ -148,13 +148,19 @@ class MoralSchemeHandler:
                                 self.feelings[self.current_scheme - 1], prev_scheme, self.current_scheme)
         if reply is None:
             return
-        log_info(f"параметры_об:{self.appr[self.current_scheme - 1]}")
-        log_info(f"параметры_суб:{self.feelings[self.current_scheme - 1]}")
-        log_info(f"Расстояние:{dist}")
+        additional_info = [
+            f'Сх: {self.schemes}',
+            f"параметры_об:{self.appr[self.current_scheme - 1]}",
+            f"параметры_суб:{self.feelings[self.current_scheme - 1]}",
+            f"Расстояние:{dist}"
+        ]
+        log_info(additional_info[0])
+        log_info(additional_info[1])
+        log_info(additional_info[2])
         for i in range(len(self.appr[self.current_scheme - 1])):
             self.appr[self.current_scheme - 1][i] = (1 - self.r) * self.appr[self.current_scheme - 1][i] + self.r * 0.3 * \
                                           self.feelings[self.current_scheme - 1][i]
-        return [reply, self.current_scheme]
+        return [reply, self.current_scheme, additional_info]
 
     def just_use_unmoral_scheme(self, message, messages):
         messages.append({"role": "user", "content": message})
